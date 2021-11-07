@@ -5,6 +5,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from typing import Optional
 from auth.api import user_router
+from database.db import connect_db,disconnect_db
 
 class Item(BaseModel):
     name: str
@@ -27,5 +28,14 @@ def get_feed_by_id(feed_id:int = Path(None,description="greater than zero",gt=0)
 @app.post('/test')
 def test(item : Item):
     return item
+
+@app.on_event("startup")
+async def startup() -> None:
+    if not connect_db():
+        pass # shutdown
+
+@app.on_event("shutdown")
+async def shutdown() -> None:
+    disconnect_db()
 
 app.include_router(user_router)
