@@ -1,11 +1,11 @@
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from fastapi import Depends,HTTPException,status
+from fastapi import Depends,HTTPException,status,Cookie
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from typing import Optional
 from datetime import datetime,timedelta
 from . import schemas
-from database.db import add_new_user_db,get_user_from_db
+from database.db import add_new_user_db,get_user_by_login_db
 
 SECRET_KEY = '8b8a819d4276f27ffa673b45d8fb85bee7272c91549cce9b120ee88a44746d9e'
 ALGORITHM = 'HS256'
@@ -27,8 +27,7 @@ def register_user(username:str,login:str,password:str):
 
 
 def authenticate_user(login: str, password: str):
-    user = get_user_from_db(login)
-    print(user)
+    user = get_user_by_login_db(login)
     if not user:
         return False
     if not verify_password(password, user[2]):
@@ -59,7 +58,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         token_data = schemas.TokenData(username=username)
     except JWTError:
         raise credentials_exception
-    user = get_user_from_db(token_data.username)
+    user = get_user_by_login_db(token_data.username)
     if user is None:
         raise credentials_exception
     return user

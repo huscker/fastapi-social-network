@@ -5,6 +5,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from typing import Optional
 from auth.api import user_router
+from profile.api import profile_router
 from database.db import connect_db,disconnect_db
 
 class Item(BaseModel):
@@ -39,3 +40,4 @@ async def shutdown() -> None:
     disconnect_db()
 
 app.include_router(user_router)
+app.include_router(profile_router)
