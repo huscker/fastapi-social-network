@@ -9,7 +9,7 @@ from database.db import add_new_user_db,get_user_by_login_db
 
 SECRET_KEY = '8b8a819d4276f27ffa673b45d8fb85bee7272c91549cce9b120ee88a44746d9e'
 ALGORITHM = 'HS256'
-ACCESS_TOKEN_EXPIRE_MINUTES = 1
+ACCESS_TOKEN_EXPIRE_MINUTES = 3
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -21,8 +21,8 @@ def get_password_hash(password):
     return pwd_context.hash(password)
 
 
-def register_user(username:str,login:str,password:str):
-    return add_new_user_db(login,get_password_hash(password),username)
+def register_user(user: schemas.UserNew):
+    return add_new_user_db(user.login,get_password_hash(user.password),user.username)
 
 
 
@@ -47,7 +47,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
+        detail="Could not validate credentials or token has expired",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
@@ -55,10 +55,9 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception
-        token_data = schemas.TokenData(username=username)
     except JWTError:
         raise credentials_exception
-    user = get_user_by_login_db(token_data.username)
+    user = get_user_by_login_db(username)
     if user is None:
         raise credentials_exception
     return user
@@ -68,7 +67,7 @@ def login_for_access_token(login:str,password : str):
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Incorrect login or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
