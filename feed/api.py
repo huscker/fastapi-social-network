@@ -27,11 +27,25 @@ def get_n_posts(n_posts: int = Path(..., gt=0)):
         'posts':posts
     })
 
+@feed_router.get('/feed/page/{page}')
+def gen_posts_by_page(page:int = Path(...,gt=0)):
+    posts = db.get_all_posts_with_paging(page)
+    print(posts)
+    if posts:
+        posts = update_post_data(posts)
+        return JSONResponse(status_code=status.HTTP_200_OK, content={
+            'posts': posts
+        })
+    else:
+        return JSONResponse(status_code=status.HTTP_200_OK, content={
+            'posts': []
+        })
+
 @feed_router.get('/feed/post/{feed_id}')
 def get_post(feed_id : int = Path(...,gt=0)):
     post = db.get_post(feed_id)
-    post = update_post_data([post])[0]
     if post:
+        post = update_post_data([post])[0]
         return JSONResponse(status_code=status.HTTP_200_OK,content={
             'post':post,
         })
@@ -49,7 +63,7 @@ def get_posts_of_user(user_id: int = Path(..., gt=0)):
         'posts':posts
     })
 
-@feed_router.get('/feed/like/{feed_id}')
+@feed_router.post('/feed/like/{feed_id}')
 def like_post(feed_id: int = Path(..., gt=0),access_token: Optional[str] = Header(None)):
     if not access_token:
         raise HTTPException(
@@ -64,10 +78,10 @@ def like_post(feed_id: int = Path(..., gt=0),access_token: Optional[str] = Heade
             detail="Already liked or invalid id"
         )
     return JSONResponse(status_code=status.HTTP_200_OK,content={
-        'detail':"Success",
+        'detail':"Executed",
     })
 
-@feed_router.get('/feed/unlike/{feed_id}')
+@feed_router.post('/feed/unlike/{feed_id}')
 def unlike_post(feed_id: int = Path(..., gt=0),access_token: Optional[str] = Header(None)):
     if not access_token:
         raise HTTPException(
@@ -82,7 +96,7 @@ def unlike_post(feed_id: int = Path(..., gt=0),access_token: Optional[str] = Hea
             detail="Unknown error"
         )
     return JSONResponse(status_code=status.HTTP_200_OK,content={
-        'detail':"Success",
+        'detail':"Executed",
     })
 
 @feed_router.delete('/feed/post/{feed_id}')
@@ -107,13 +121,13 @@ def delete_post(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Post doesnt belong to user"
         )
-    if not db.delete_post(feed_id,user[0]):
+    if not db.delete_post(feed_id):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Unknown error"
         )
     return JSONResponse(status_code=status.HTTP_200_OK,content={
-        'detail':"Success",
+        'detail':"Executed",
     })
 @feed_router.post('/feed')
 def add_new_post(
@@ -135,7 +149,7 @@ def add_new_post(
             detail="Post title is not unique"
         )
     return JSONResponse(status_code=status.HTTP_201_CREATED,content={
-        'id': id,
+        'id': id[0],
         'title': title,
         'description': description
     })

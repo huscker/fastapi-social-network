@@ -1,7 +1,5 @@
+import os
 import psycopg2
-
-# TODO: add text limits
-# TODO: change saving filenames from ids to hashes
 from fastapi import UploadFile
 
 DATABASE = "postgres"
@@ -10,8 +8,57 @@ PASSWORD = ""
 HOST = "127.0.0.1"
 PORT = "5432"
 
+POSTS_PER_PAGE = 2
+
 con: psycopg2.extensions.connection
 
+def wait():
+    global con
+    while True:
+        state = con.poll()
+        if state == psycopg2.extensions.POLL_OK:
+            break
+        else:
+            raise psycopg2.OperationalError("poll() returned %s" % state)
+
+def commit_db(sql:str,params:tuple):
+    global con
+    wait()
+    cur = con.cursor()
+    try:
+        cur.execute(sql,params)
+        con.commit()
+    except Exception as er:
+        print(er)
+        con.rollback()
+        return False
+    return True
+
+def fetchone_db(sql:str,params:tuple):
+    global con
+    wait()
+    cur = con.cursor()
+    try:
+        cur.execute(sql, params)
+        con.commit()
+        return cur.fetchone()
+    except Exception as er:
+        print(er)
+        con.rollback()
+        return False
+
+def fetchall_db(sql:str,params:tuple):
+    global con
+    wait()
+    cur = con.cursor()
+    try:
+        cur.execute(sql,params)
+        con.commit()
+        return cur.fetchall()
+    except Exception as er:
+        print(er)
+        con.rollback()
+        return list()
 
 def connect_db():
     global con
@@ -25,7 +72,6 @@ def connect_db():
     try:
         cur.execute("select exists(select * from information_schema.tables where table_name=%s)", ('user_data',))
     except Exception as er:
-        print(1)
         print(er)
         con.close()
         return False
@@ -88,275 +134,130 @@ def disconnect_db():
     global con
     con.close()
 
-
-def wait():
-    global con
-    while True:
-        state = con.poll()
-        if state == psycopg2.extensions.POLL_OK:
-            break
-        else:
-            raise psycopg2.OperationalError("poll() returned %s" % state)
-
-
 def add_new_user_db(login: str, password: str, username: str):
-    global con
-    wait()
-    cur = con.cursor()
-    try:
-        cur.execute(
-            "insert into user_data (login,password,username) values (%s,%s,%s) ;", (login, password, username,))
-        con.commit()
-    except Exception as er:
-        print(er)
-        con.rollback()
-        return False
-    return True
-
+    sql = """insert
+             into user_data (login,password,username)
+             values (%s,%s,%s) ;"""
+    return commit_db(sql,(login,password,username,))
 
 def get_user_by_login_db(login: str):
-    global con
-    wait()
-    cur = con.cursor()
-    try:
-        cur.execute(
-            "select * from user_data where login=%s", (login,))
-        con.commit()
-        return cur.fetchone()
-    except Exception as er:
-        print(er)
-        con.rollback()
-        return False
-
+    sql = """select *
+             from user_data where login=%s"""
+    return fetchone_db(sql,(login,))
 
 def get_user_by_id_db(id: int):
-    global con
-    wait()
-    cur = con.cursor()
-    try:
-        cur.execute(
-            "select * from user_data where id=%s", (id,))
-        con.commit()
-        return cur.fetchone()
-    except Exception as er:
-        print(er)
-        con.rollback()
-        return False
+    sql = """select *
+             from user_data where id=%s"""
+    return fetchone_db(sql,(id,))
 
 
 def update_user_db(password: str, username: str, id: int):
-    global con
-    wait()
-    cur = con.cursor()
-    try:
-        cur.execute(
-            "update user_data set password=%s,username=%s where id=%s", (password, username, id))
-        con.commit()
-    except Exception as er:
-        print(er)
-        con.rollback()
-        return False
-    return True
+    if password is None:
+        sql = """update user_data 
+                 set username=%s where id=%s"""
+        return commit_db(sql,(username,id))
+    else:
+        sql = """update user_data 
+                 set password=%s, username=%s where id=%s"""
+        return commit_db(sql,(password,username,id))
 
 def add_new_post(title : str,description : str,file_photo: UploadFile,owner_id:int):
-    global con
-    wait()
-    cur = con.cursor()
     data = file_photo.file.read()
     if len(data) == 0:
-        print('file is empty')
+        return False
+    sql = """insert into feed_data (title,description,owner_id,liked) values (%s,%s,%s,%s) ;"""
+    if not commit_db(sql,(title, description, owner_id,0)):
+        return False
+    sql = """select id from feed_data where title=%s and owner_id=%s;"""
+    id = fetchone_db(sql,(title,owner_id,))
+    if not id:
         return False
     try:
-        cur.execute(
-            "insert into feed_data (title,description,owner_id,liked) values (%s,%s,%s,%s) ;", (title, description, owner_id,0))
-        con.commit()
-        cur.execute(
-            'select id from feed_data where title=%s and owner_id=%s;',(title,owner_id,)
-        )
-        con.commit()
-        id = cur.fetchone()
-
-        with open(f'static/{id[0]}.png',mode='wb+') as f:
+        with open(f'static/{id[0]}.png', mode='wb+') as f:
             f.write(data)
-        return id
-    except Exception as er:
-        print(er)
-        con.rollback()
+    except Exception as e:
+        print(e)
         return False
+    return id
 
 def get_posts_of_user(owner_id : int):
-    global con
-    wait()
-    cur = con.cursor()
-    try:
-        cur.execute(
-            '''select 
-            user_data.username,feed_data.id,user_data.id, 
-            feed_data.title ,feed_data.description,feed_data.liked
-            from feed_data inner join user_data 
-            on user_data.id = feed_data.owner_id 
-            where owner_id=%s;''', (owner_id,)
-        )
-        con.commit()
-        items = cur.fetchall()
-        return items
-    except Exception as er:
-        print(er)
-        con.rollback()
-        return list()
+    sql = """select 
+             user_data.username,feed_data.id,user_data.id, 
+             feed_data.title ,feed_data.description,feed_data.liked
+             from feed_data inner join user_data 
+             on user_data.id = feed_data.owner_id 
+             where owner_id=%s;"""
+    return fetchall_db(sql,(owner_id,))
 
 def get_post(feed_id:int):
-    global con
-    wait()
-    cur = con.cursor()
-    try:
-        cur.execute(
-            '''select 
-            user_data.username,feed_data.id,user_data.id, 
-            feed_data.title ,feed_data.description,feed_data.liked
-            from feed_data inner join user_data 
-            on user_data.id = feed_data.owner_id 
-            where feed_data.id = %s ''',(feed_id,)
-        )
-        con.commit()
-        items = cur.fetchone()
-        return items
-    except Exception as er:
-        print(er)
-        con.rollback()
-        return False
+    sql = """select 
+             user_data.username,feed_data.id,user_data.id, 
+             feed_data.title ,feed_data.description,feed_data.liked
+             from feed_data inner join user_data 
+             on user_data.id = feed_data.owner_id 
+             where feed_data.id = %s """
+    return fetchone_db(sql,(feed_id,))
 
 def get_random_n_posts(number_of_posts:int):
-    global con
-    wait()
-    cur = con.cursor()
-    try:
-        cur.execute(
-            '''select 
-            user_data.username,feed_data.id,user_data.id, 
-            feed_data.title ,feed_data.description,feed_data.liked
-            from feed_data inner join user_data 
-            on user_data.id = feed_data.owner_id 
-            order by random() limit %s;''', (number_of_posts,)
-        )
-        con.commit()
-        items = cur.fetchall()
-        return items
-    except Exception as er:
-        print(er)
-        con.rollback()
-        return list()
+    sql = """select 
+             user_data.username,feed_data.id,user_data.id, 
+             feed_data.title ,feed_data.description,feed_data.liked
+             from feed_data inner join user_data 
+             on user_data.id = feed_data.owner_id 
+             order by random() limit %s;"""
+    return fetchall_db(sql,(number_of_posts,))
 
 def get_all_posts():
-    global con
-    wait()
-    cur = con.cursor()
-    try:
-        cur.execute(
-            '''select 
-            user_data.username,feed_data.id,user_data.id, 
-            feed_data.title ,feed_data.description ,feed_data.liked
-            from feed_data inner join user_data 
-            on user_data.id = feed_data.owner_id'''
-        )
-        con.commit()
-        items = cur.fetchall()
-        return items
-    except Exception as er:
-        print(er)
-        con.rollback()
-        return list()
+    sql = """select 
+             user_data.username,feed_data.id,user_data.id, 
+             feed_data.title ,feed_data.description ,feed_data.liked
+             from feed_data inner join user_data 
+             on user_data.id = feed_data.owner_id"""
+    return fetchall_db(sql,tuple())
 
-def delete_post(feed_id:int,owner_id: int):
-    global con
-    wait()
-    cur = con.cursor()
-    try:
-        cur.execute(
-            '''delete from liked_data where user_id = %s and feed_id = %s''',
-            (owner_id,feed_id,)
-        )
-    except Exception as er:
-        print(er)
-        con.rollback()
+def get_all_posts_with_paging(page : int):
+    sql = """select 
+             user_data.username,feed_data.id,user_data.id, 
+             feed_data.title ,feed_data.description ,feed_data.liked
+             from feed_data inner join user_data 
+             on user_data.id = feed_data.owner_id limit %s offset %s"""
+    return fetchall_db(sql,(POSTS_PER_PAGE,(page-1)*POSTS_PER_PAGE,))
+
+def delete_post(feed_id:int):
+    sql = """delete from liked_data where feed_id = %s"""
+    if not commit_db(sql,(feed_id,)):
+        return False
+    sql = """delete from feed_data where id = %s;"""
+    if not commit_db(sql,(feed_id,)):
         return False
     try:
-        cur.execute(
-            '''delete from feed_data where id = %s and owner_id = %s;''', (feed_id,owner_id)
-        )
-        con.commit()
-    except Exception as er:
-        print(er)
-        con.rollback()
-        return False
+        os.remove(f'static/{feed_id}.png')
+    except Exception as e:
+        print(e)
     return True
 
 def like_post(user_id:int,feed_id:int):
-    global con
-    wait()
-    cur = con.cursor()
-    try:
-        cur.execute(
-            '''insert into liked_data (user_id,feed_id) values (%s,%s);''', (user_id,feed_id,)
-        )
-        con.commit()
-    except Exception as er:
-        print(er)
-        con.rollback()
+    sql = """insert into liked_data (user_id,feed_id) values (%s,%s);"""
+    if not commit_db(sql,(user_id,feed_id,)):
         return False
     liked = count_likes(feed_id)
     if not liked:
         return False
-    try:
-        cur.execute(
-            '''update feed_data set liked=%s where id=%s''', (liked,feed_id,) # aaaaa
-        )
-        con.commit()
-    except Exception as er:
-        print(er)
-        con.rollback()
-        return False
-    return True
+    sql = """update feed_data set liked=%s where id=%s"""
+    return commit_db(sql,(liked,feed_id,))
 
 def unlike_post(user_id:int,feed_id:int):
-    global con
-    wait()
-    cur = con.cursor()
-    try:
-        cur.execute(
-            '''delete from liked_data where user_id=%s and feed_id=%s ;''', (user_id, feed_id,)
-        )
-        con.commit()
-    except Exception as er:
-        print(er)
-        con.rollback()
+    sql = """delete from liked_data where user_id=%s and feed_id=%s ;"""
+    if not commit_db(sql,(user_id,feed_id,)):
         return False
     liked = count_likes(feed_id)
     if not liked:
         return False
-    try:
-        cur.execute(
-            '''update feed_data set liked=%s where id=%s''', (liked,feed_id,) # aaaaa
-        )
-        con.commit()
-    except Exception as er:
-        print(er)
-        con.rollback()
-        return False
-    return True
+    sql = """update feed_data set liked=%s where id=%s"""
+    return commit_db(sql,(liked,feed_id,))
 
 def count_likes(feed_id:int):
-    global con
-    wait()
-    cur = con.cursor()
-    try:
-        cur.execute(
-            '''select count(id) from liked_data where feed_id = %s;''', (feed_id,)
-        )
-        con.commit()
-        return cur.fetchone()
-    except Exception as er:
-        print(er)
-        con.rollback()
-        return False
+    sql = """select count(id) from liked_data where feed_id = %s;"""
+    return fetchone_db(sql,(feed_id,))
+
 
