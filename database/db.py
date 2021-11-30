@@ -8,7 +8,7 @@ PASSWORD = ""
 HOST = "127.0.0.1"
 PORT = "5432"
 
-POSTS_PER_PAGE = 2
+POSTS_PER_PAGE = 5
 
 con: psycopg2.extensions.connection
 

@@ -1,11 +1,11 @@
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from fastapi import Depends,HTTPException,status,Cookie
+from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends, HTTPException, status
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from typing import Optional
-from datetime import datetime,timedelta
+from datetime import datetime, timedelta
 from . import schemas
-from database.db import add_new_user_db,get_user_by_login_db
+from database.db import add_new_user_db, get_user_by_login_db
 
 SECRET_KEY = '8b8a819d4276f27ffa673b45d8fb85bee7272c91549cce9b120ee88a44746d9e'
 ALGORITHM = 'HS256'
@@ -14,16 +14,17 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 5
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
+
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
+
 
 def get_password_hash(password):
     return pwd_context.hash(password)
 
 
 def register_user(user: schemas.UserNew):
-    return add_new_user_db(user.login,get_password_hash(user.password),user.username)
-
+    return add_new_user_db(user.login, get_password_hash(user.password), user.username)
 
 
 def authenticate_user(login: str, password: str):
@@ -34,6 +35,7 @@ def authenticate_user(login: str, password: str):
         return False
     return user
 
+
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     if expires_delta:
@@ -43,6 +45,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
@@ -62,7 +65,8 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         raise credentials_exception
     return user
 
-def login_for_access_token(login:str,password : str):
+
+def login_for_access_token(login: str, password: str):
     user = authenticate_user(login, password)
     if not user:
         raise HTTPException(
