@@ -1,7 +1,9 @@
+from typing import Optional
+
 from fastapi import APIRouter, status, Path, HTTPException, File, UploadFile, Header
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
-from typing import Optional
+
 from auth.login import get_current_user
 from database import db
 from feed.feed import update_post_data
@@ -13,6 +15,9 @@ feed_router = APIRouter()
 
 @feed_router.get('/feed')
 def get_feed():
+    '''
+    Get all posts
+    '''
     posts = db.get_all_posts()
     posts = update_post_data(posts)
     return JSONResponse(status_code=status.HTTP_200_OK, content={
@@ -21,7 +26,10 @@ def get_feed():
 
 
 @feed_router.get('/feed/{n_posts}')
-def get_n_posts(n_posts: int = Path(..., gt=0)):
+def get_n_posts(n_posts: int = Path(..., gt=0,description='Number of random posts to be returned')):
+    '''
+    Get user defined number of posts
+    '''
     posts = db.get_random_n_posts(n_posts)
     posts = update_post_data(posts)
     return JSONResponse(status_code=status.HTTP_200_OK, content={
@@ -30,9 +38,11 @@ def get_n_posts(n_posts: int = Path(..., gt=0)):
 
 
 @feed_router.get('/feed/page/{page}')
-def gen_posts_by_page(page: int = Path(..., gt=0)):
+def gen_posts_by_page(page: int = Path(..., gt=0,description='Page number')):
+    '''
+    Get posts on page
+    '''
     posts = db.get_all_posts_with_paging(page)
-    print(posts)
     if posts:
         posts = update_post_data(posts)
         return JSONResponse(status_code=status.HTTP_200_OK, content={
@@ -45,7 +55,10 @@ def gen_posts_by_page(page: int = Path(..., gt=0)):
 
 
 @feed_router.get('/feed/post/{feed_id}')
-def get_post(feed_id: int = Path(..., gt=0)):
+def get_post(feed_id: int = Path(..., gt=0,description='Post id')):
+    '''
+    Get post by id
+    '''
     post = db.get_post(feed_id)
     if post:
         post = update_post_data([post])[0]
@@ -60,7 +73,10 @@ def get_post(feed_id: int = Path(..., gt=0)):
 
 
 @feed_router.get('/feed/user/{user_id}')
-def get_posts_of_user(user_id: int = Path(..., gt=0)):
+def get_posts_of_user(user_id: int = Path(..., gt=0,description='User id')):
+    '''
+    Get posts of user by id
+    '''
     posts = db.get_posts_of_user(user_id)
     posts = update_post_data(posts)
     return JSONResponse(status_code=status.HTTP_200_OK, content={
@@ -69,7 +85,10 @@ def get_posts_of_user(user_id: int = Path(..., gt=0)):
 
 
 @feed_router.post('/feed/like/{feed_id}')
-def like_post(feed_id: int = Path(..., gt=0), access_token: Optional[str] = Header(None)):
+def like_post(feed_id: int = Path(..., gt=0,description='Post id'), access_token: Optional[str] = Header(None,description='JWT auth token')):
+    '''
+    Like post if authorized
+    '''
     if not access_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -88,7 +107,10 @@ def like_post(feed_id: int = Path(..., gt=0), access_token: Optional[str] = Head
 
 
 @feed_router.post('/feed/unlike/{feed_id}')
-def unlike_post(feed_id: int = Path(..., gt=0), access_token: Optional[str] = Header(None)):
+def unlike_post(feed_id: int = Path(..., gt=0,description='Post id'), access_token: Optional[str] = Header(None,description='JWT auth token')):
+    '''
+    Remove like if authorized
+    '''
     if not access_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -108,8 +130,11 @@ def unlike_post(feed_id: int = Path(..., gt=0), access_token: Optional[str] = He
 
 @feed_router.delete('/feed/post/{feed_id}')
 def delete_post(
-        feed_id: int = Path(..., gt=0),
-        access_token: Optional[str] = Header(None)):
+        feed_id: int = Path(..., gt=0,description='Post id'),
+        access_token: Optional[str] = Header(None,description='JWT auth token')):
+    '''
+    Delete post and data, associated with it if authorized
+    '''
     if not access_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -142,8 +167,11 @@ def delete_post(
 def add_new_post(
         title: str,
         description: str,
-        photo_file: UploadFile = File(...),
-        access_token: Optional[str] = Header(None)):
+        photo_file: UploadFile = File(...,description='Upload file'),
+        access_token: Optional[str] = Header(None,description='JWT auth token')):
+    '''
+    Add new post if authorized
+    '''
     if not access_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

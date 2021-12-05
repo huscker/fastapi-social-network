@@ -7,6 +7,9 @@ user_router = APIRouter()
 
 @user_router.post('/registration', response_model=schemas.UserNew)
 def register_new(user: schemas.UserNew):
+    '''
+    Register new user
+    '''
     if register_user(user):
         return user
     else:
@@ -18,5 +21,8 @@ def register_new(user: schemas.UserNew):
 
 
 @user_router.post('/login', response_model=schemas.Token)
-def authenticate(login: str = Form(...), password: str = Form(...)):
+def authenticate(login: str = Form(...,description='User login'), password: str = Form(...,description='User password')):
+    '''
+    Get auth token
+    '''
     return login_for_access_token(login, password)

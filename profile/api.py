@@ -1,6 +1,8 @@
+from typing import Optional
+
 from fastapi import APIRouter, status, HTTPException, Header
 from fastapi.responses import JSONResponse
-from typing import Optional
+
 from auth.login import get_current_user, get_password_hash
 from database import db
 
@@ -8,7 +10,10 @@ profile_router = APIRouter()
 
 
 @profile_router.get('/profile')
-def get_my_profile(access_token: Optional[str] = Header(None)):
+def get_my_profile(access_token: Optional[str] = Header(None,description='JWT auth token')):
+    '''
+    Get posts and user data
+    '''
     if not access_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -29,9 +34,12 @@ def get_my_profile(access_token: Optional[str] = Header(None)):
 
 @profile_router.put('/profile')
 def change_profile(
-        access_token: Optional[str] = Header(None),
-        username: Optional[str] = Header(None),
-        password: Optional[str] = Header(None)):
+        access_token: Optional[str] = Header(None,description='JWT auth token'),
+        username: Optional[str] = Header(None,description='New username'),
+        password: Optional[str] = Header(None,description='New password')):
+    '''
+    Change user data if registered
+    '''
     if not access_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -39,7 +47,6 @@ def change_profile(
             headers={"WWW-Authenticate": "Bearer"},
         )
     user = list(get_current_user(access_token))
-    print(password, username)
     if password is not None:
         user[2] = get_password_hash(password)
     else:

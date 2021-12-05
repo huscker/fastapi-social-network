@@ -1,11 +1,13 @@
-from fastapi.security import OAuth2PasswordBearer
+from datetime import datetime, timedelta
+from typing import Optional
+
 from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from typing import Optional
-from datetime import datetime, timedelta
-from . import schemas
+
 from database.db import add_new_user_db, get_user_by_login_db
+from . import schemas
 
 SECRET_KEY = '8b8a819d4276f27ffa673b45d8fb85bee7272c91549cce9b120ee88a44746d9e'
 ALGORITHM = 'HS256'
@@ -16,18 +18,40 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
 def verify_password(plain_password, hashed_password):
+    '''
+    Return if password matches hashed version
+    :param plain_password:
+    :param hashed_password:
+    :return: True or False
+    '''
     return pwd_context.verify(plain_password, hashed_password)
 
 
 def get_password_hash(password):
+    '''
+    Get hashed version of password
+    :param password:
+    :return: str()
+    '''
     return pwd_context.hash(password)
 
 
 def register_user(user: schemas.UserNew):
+    '''
+    Add new user to db
+    :param user:
+    :return: True or False
+    '''
     return add_new_user_db(user.login, get_password_hash(user.password), user.username)
 
 
 def authenticate_user(login: str, password: str):
+    '''
+    Get user if authorized
+    :param login:
+    :param password:
+    :return: list() or False
+    '''
     user = get_user_by_login_db(login)
     if not user:
         return False
@@ -37,6 +61,12 @@ def authenticate_user(login: str, password: str):
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    '''
+    Generate auth token
+    :param data:
+    :param expires_delta: Optional
+    :return: str()
+    '''
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
@@ -48,6 +78,11 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
+    '''
+    Get user by auth token
+    :param token:
+    :return: list() or credentials_exception
+    '''
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials or token has expired",
@@ -67,6 +102,12 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
 
 
 def login_for_access_token(login: str, password: str):
+    '''
+    Login user and return token
+    :param login:
+    :param password:
+    :return: dict()
+    '''
     user = authenticate_user(login, password)
     if not user:
         raise HTTPException(
