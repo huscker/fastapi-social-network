@@ -2,13 +2,10 @@ from typing import Optional
 
 from fastapi import APIRouter, status, Path, HTTPException, File, UploadFile, Header
 from fastapi.responses import JSONResponse
-from fastapi.templating import Jinja2Templates
 
 from auth.login import get_current_user
 from database import db
 from feed.feed import update_post_data
-
-templates = Jinja2Templates(directory="templates")
 
 feed_router = APIRouter()
 
@@ -26,7 +23,7 @@ async def get_feed():
 
 
 @feed_router.get('/feed/{n_posts}')
-async def get_n_posts(n_posts: int = Path(..., gt=0,description='Number of random posts to be returned')):
+async def get_n_posts(n_posts: int = Path(..., gt=0, description='Number of random posts to be returned')):
     '''
     Get user defined number of posts
     '''
@@ -38,7 +35,7 @@ async def get_n_posts(n_posts: int = Path(..., gt=0,description='Number of rando
 
 
 @feed_router.get('/feed/page/{page}')
-async def gen_posts_by_page(page: int = Path(..., gt=0,description='Page number')):
+async def gen_posts_by_page(page: int = Path(..., gt=0, description='Page number')):
     '''
     Get posts on page
     '''
@@ -55,7 +52,7 @@ async def gen_posts_by_page(page: int = Path(..., gt=0,description='Page number'
 
 
 @feed_router.get('/feed/post/{feed_id}')
-async def get_post(feed_id: int = Path(..., gt=0,description='Post id')):
+async def get_post(feed_id: int = Path(..., gt=0, description='Post id')):
     '''
     Get post by id
     '''
@@ -73,7 +70,7 @@ async def get_post(feed_id: int = Path(..., gt=0,description='Post id')):
 
 
 @feed_router.get('/feed/user/{user_id}')
-async def get_posts_of_user(user_id: int = Path(..., gt=0,description='User id')):
+async def get_posts_of_user(user_id: int = Path(..., gt=0, description='User id')):
     '''
     Get posts of user by id
     '''
@@ -85,7 +82,8 @@ async def get_posts_of_user(user_id: int = Path(..., gt=0,description='User id')
 
 
 @feed_router.post('/feed/like/{feed_id}')
-async def like_post(feed_id: int = Path(..., gt=0,description='Post id'), access_token: Optional[str] = Header(None,description='JWT auth token')):
+async def like_post(feed_id: int = Path(..., gt=0, description='Post id'),
+                    access_token: Optional[str] = Header(None, description='JWT auth token')):
     '''
     Like post if authorized
     '''
@@ -107,7 +105,8 @@ async def like_post(feed_id: int = Path(..., gt=0,description='Post id'), access
 
 
 @feed_router.post('/feed/unlike/{feed_id}')
-async def unlike_post(feed_id: int = Path(..., gt=0,description='Post id'), access_token: Optional[str] = Header(None,description='JWT auth token')):
+async def unlike_post(feed_id: int = Path(..., gt=0, description='Post id'),
+                      access_token: Optional[str] = Header(None, description='JWT auth token')):
     '''
     Remove like if authorized
     '''
@@ -130,8 +129,8 @@ async def unlike_post(feed_id: int = Path(..., gt=0,description='Post id'), acce
 
 @feed_router.delete('/feed/post/{feed_id}')
 async def delete_post(
-        feed_id: int = Path(..., gt=0,description='Post id'),
-        access_token: Optional[str] = Header(None,description='JWT auth token')):
+        feed_id: int = Path(..., gt=0, description='Post id'),
+        access_token: Optional[str] = Header(None, description='JWT auth token')):
     '''
     Delete post and data, associated with it if authorized
     '''
@@ -167,8 +166,8 @@ async def delete_post(
 async def add_new_post(
         title: str,
         description: str,
-        photo_file: UploadFile = File(...,description='Upload file'),
-        access_token: Optional[str] = Header(None,description='JWT auth token')):
+        photo_file: UploadFile = File(..., description='Upload file'),
+        access_token: Optional[str] = Header(None, description='JWT auth token')):
     '''
     Add new post if authorized
     '''
