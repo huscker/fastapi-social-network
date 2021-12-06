@@ -14,7 +14,11 @@ async def connect_db():
     '''
     global con
     try:
-        con = await asyncpg.connect(database=DATABASE, user=USER, password=PASSWORD, host=HOST, port=PORT)
+        url = os.environ.get('DATABASE_URL')
+        if url:
+            con = await asyncpg.connect(url)
+        else:
+            con = await asyncpg.connect(database=DATABASE, user=USER, password=PASSWORD, host=HOST, port=PORT)
     except Exception as er:
         print(er)
         con = None
