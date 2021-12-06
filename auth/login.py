@@ -6,12 +6,9 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
+from configs.auth import *
 from database.db import add_new_user_db, get_user_by_login_db
 from . import schemas
-
-SECRET_KEY = '8b8a819d4276f27ffa673b45d8fb85bee7272c91549cce9b120ee88a44746d9e'
-ALGORITHM = 'HS256'
-ACCESS_TOKEN_EXPIRE_MINUTES = 5
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -36,23 +33,23 @@ def get_password_hash(password):
     return pwd_context.hash(password)
 
 
-def register_user(user: schemas.UserNew):
+async def register_user(user: schemas.UserNew):
     '''
     Add new user to db
     :param user:
     :return: True or False
     '''
-    return add_new_user_db(user.login, get_password_hash(user.password), user.username)
+    return await add_new_user_db(user.login, get_password_hash(user.password), user.username)
 
 
-def authenticate_user(login: str, password: str):
+async def authenticate_user(login: str, password: str):
     '''
     Get user if authorized
     :param login:
     :param password:
     :return: list() or False
     '''
-    user = get_user_by_login_db(login)
+    user = await get_user_by_login_db(login)
     if not user:
         return False
     if not verify_password(password, user[2]):
@@ -77,7 +74,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     return encoded_jwt
 
 
-def get_current_user(token: str = Depends(oauth2_scheme)):
+async def get_current_user(token: str = Depends(oauth2_scheme)):
     '''
     Get user by auth token
     :param token:
@@ -95,20 +92,20 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    user = get_user_by_login_db(username)
+    user = await get_user_by_login_db(username)
     if user is None:
         raise credentials_exception
     return user
 
 
-def login_for_access_token(login: str, password: str):
+async def login_for_access_token(login: str, password: str):
     '''
     Login user and return token
     :param login:
     :param password:
     :return: dict()
     '''
-    user = authenticate_user(login, password)
+    user = await authenticate_user(login, password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

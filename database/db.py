@@ -1,174 +1,88 @@
 import os
 
-import psycopg2
+import asyncpg
 from fastapi import UploadFile
+from configs.db import *
 
-DATABASE = "postgres"
-USER = "postgres"
-PASSWORD = "postgres"
-HOST = "127.0.0.1"
-PORT = "5432"
-
-POSTS_PER_PAGE = 5
-
-con: psycopg2.extensions.connection
+con : asyncpg.connection.Connection
 
 
-def wait():
-    '''
-    Wait pending requests
-    '''
-    global con
-    while True:
-        state = con.poll()
-        if state == psycopg2.extensions.POLL_OK:
-            break
-        else:
-            raise psycopg2.OperationalError("poll() returned %s" % state)
-
-
-def commit_db(sql: str, params: tuple):
-    '''
-    Commit SQL query
-    :param sql: prepared statement
-    :param params: arguments for query
-    :return: True or False
-    '''
-    global con
-    wait()
-    cur = con.cursor()
-    try:
-        cur.execute(sql, params)
-        con.commit()
-    except Exception as er:
-        print(er)
-        con.rollback()
-        return False
-    return True
-
-
-def fetchone_db(sql: str, params: tuple):
-    '''
-    Fetch one row
-    :param sql: prepared statement
-    :param params: arguments for query
-    :return: list() or False
-    '''
-    global con
-    wait()
-    cur = con.cursor()
-    try:
-        cur.execute(sql, params)
-        con.commit()
-        return cur.fetchone()
-    except Exception as er:
-        print(er)
-        con.rollback()
-        return False
-
-
-def fetchall_db(sql: str, params: tuple):
-    '''
-    Fetch all rows
-    :param sql: prepared statement
-    :param params: arguments for query
-    :return: list()
-    '''
-    global con
-    wait()
-    cur = con.cursor()
-    try:
-        cur.execute(sql, params)
-        con.commit()
-        return cur.fetchall()
-    except Exception as er:
-        print(er)
-        con.rollback()
-        return list()
-
-
-def connect_db():
+async def connect_db():
     '''
     Connect to db or create new db
     :return: True or False
     '''
     global con
     try:
-        con = psycopg2.connect(database=DATABASE, user=USER, password=PASSWORD, host=HOST, port=PORT)
+        con = await asyncpg.connect(database=DATABASE, user=USER, password=PASSWORD, host=HOST, port=PORT)
     except Exception as er:
         print(er)
         con = None
         return False
-    cur = con.cursor()
     try:
-        cur.execute("select exists(select * from information_schema.tables where table_name=%s)", ('user_data',))
+        a = await con.fetch("select exists(select * from information_schema.tables where table_name = $1)",'user_data')
     except Exception as er:
         print(er)
-        con.close()
+        await con.close()
         return False
-    if not cur.fetchone()[0]:
+    if not a[0][0]:
         try:
-            cur.execute(
+            await con.execute(
                 "create table user_data (id serial primary key, login text not null unique, password text not null, username text not null unique) ;")
-            con.commit()
         except Exception as er:
             print(er)
-            con.close()
+            await con.close()
             return False
 
     try:
-        cur.execute("select exists(select * from information_schema.tables where table_name=%s)", ('feed_data',))
+        a = await con.fetch("select exists(select * from information_schema.tables where table_name=$1)", 'feed_data')
     except Exception as er:
-        print(2)
         print(er)
-        con.close()
+        await con.close()
         return False
 
-    if not cur.fetchone()[0]:
+    if not a[0][0]:
         try:
-            cur.execute(
+            await con.execute(
                 "create table feed_data (id serial primary key, owner_id integer not null references user_data(id), title text not null, description text,liked integer, unique(title,owner_id)) ;")
-            con.commit()
         except Exception as er:
             print(er)
-            con.close()
+            await con.close()
             return False
 
     try:
-        cur.execute("select exists(select * from information_schema.tables where table_name=%s)", ('liked_data',))
+        a = await con.fetch("select exists(select * from information_schema.tables where table_name=$1)", 'liked_data')
     except Exception as er:
-        print(2)
         print(er)
-        con.close()
+        await con.close()
         return False
 
-    if not cur.fetchone()[0]:
+    if not a[0][0]:
         try:
-            cur.execute(
+            await con.execute(
                 "create table liked_data ("
                 "id serial primary key,"
                 "user_id integer not null references user_data(id),"
                 "feed_id integer not null references feed_data(id),"
                 "unique(user_id,feed_id)"
                 ");")
-            con.commit()
         except Exception as er:
             print(er)
-            con.close()
+            await con.close()
             return False
     return True
 
 
-def disconnect_db():
+async def disconnect_db():
     '''
     Disconnect from db
     :return: True or False
     '''
     global con
-    con.close()
+    await con.close()
 
 
-def add_new_user_db(login: str, password: str, username: str):
+async def add_new_user_db(login: str, password: str, username: str):
     '''
     Add new user to USERS table
     :param login
@@ -178,33 +92,48 @@ def add_new_user_db(login: str, password: str, username: str):
     '''
     sql = """insert
              into user_data (login,password,username)
-             values (%s,%s,%s) ;"""
-    return commit_db(sql, (login, password, username,))
+             values ($1,$2,$3) ;"""
+    global con
+    try:
+        return await con.execute(sql,login,password,username)
+    except Exception as e:
+        print(e)
+        return False
 
 
-def get_user_by_login_db(login: str):
+async def get_user_by_login_db(login: str):
     '''
     Get user by login
     :param login
     :return: list() or False
     '''
     sql = """select *
-             from user_data where login=%s"""
-    return fetchone_db(sql, (login,))
+             from user_data where login=$1"""
+    global con
+    try:
+        return list(await con.fetchrow(sql,login))
+    except Exception as e:
+        print(e)
+        return False
 
 
-def get_user_by_id_db(id: int):
+async def get_user_by_id_db(id: int):
     '''
     Get user by id
     :param id
     :return: list() or False
     '''
     sql = """select *
-             from user_data where id=%s"""
-    return fetchone_db(sql, (id,))
+             from user_data where id=$1"""
+    global con
+    try:
+        return list(await con.fetchrow(sql, id))
+    except Exception as e:
+        print(e)
+        return False
 
 
-def update_user_db(password: str, username: str, id: int):
+async def update_user_db(password: str, username: str, id: int):
     '''
     Change user data
     :param password: Optional
@@ -212,17 +141,26 @@ def update_user_db(password: str, username: str, id: int):
     :param id
     :return: True or False
     '''
+    global con
     if password is None:
         sql = """update user_data 
-                 set username=%s where id=%s"""
-        return commit_db(sql, (username, id))
+                 set username=$1 where id=$2"""
+        try:
+            return await con.execute(sql,username,id)
+        except Exception as e:
+            print(e)
+            return False
     else:
         sql = """update user_data 
-                 set password=%s, username=%s where id=%s"""
-        return commit_db(sql, (password, username, id))
+                 set password=$1, username=$2 where id=$3"""
+        try:
+            return await con.execute(sql,password,username,id)
+        except Exception as e:
+            print(e)
+            return False
 
 
-def add_new_post(title: str, description: str, file_photo: UploadFile, owner_id: int):
+async def add_new_post(title: str, description: str, file_photo: UploadFile, owner_id: int):
     '''
     Add new post and add new file, associated with post
     :param title
@@ -234,11 +172,20 @@ def add_new_post(title: str, description: str, file_photo: UploadFile, owner_id:
     data = file_photo.file.read()
     if len(data) == 0:
         return False
-    sql = """insert into feed_data (title,description,owner_id,liked) values (%s,%s,%s,%s) ;"""
-    if not commit_db(sql, (title, description, owner_id, 0)):
+    sql = """insert into feed_data (title,description,owner_id,liked) values ($1,$2,$3,$4) ;"""
+    global con
+    try:
+        await con.execute(sql,title,description,owner_id,0)
+    except Exception as e:
+        print(e)
         return False
-    sql = """select id from feed_data where title=%s and owner_id=%s;"""
-    id = fetchone_db(sql, (title, owner_id,))
+    sql = """select id from feed_data where title=$1 and owner_id=$2;"""
+    id = []
+    try:
+        id = await con.fetchrow(sql,title,owner_id)
+    except Exception as e:
+        print(e)
+        return False
     if not id:
         return False
     try:
@@ -250,7 +197,7 @@ def add_new_post(title: str, description: str, file_photo: UploadFile, owner_id:
     return id
 
 
-def get_posts_of_user(owner_id: int):
+async def get_posts_of_user(owner_id: int):
     '''
     Get all posts of user by id
     :param owner_id
@@ -261,11 +208,18 @@ def get_posts_of_user(owner_id: int):
              feed_data.title ,feed_data.description,feed_data.liked
              from feed_data inner join user_data 
              on user_data.id = feed_data.owner_id 
-             where owner_id=%s;"""
-    return fetchall_db(sql, (owner_id,))
+             where owner_id=$1;"""
+    global con
+    try:
+        res = await con.fetch(sql,owner_id)
+        res = list(map(list,res))
+        return res
+    except Exception as e:
+        print(e)
+        return list()
 
 
-def get_post(feed_id: int):
+async def get_post(feed_id: int):
     '''
     Get post by id
     :param feed_id
@@ -276,11 +230,16 @@ def get_post(feed_id: int):
              feed_data.title ,feed_data.description,feed_data.liked
              from feed_data inner join user_data 
              on user_data.id = feed_data.owner_id 
-             where feed_data.id = %s """
-    return fetchone_db(sql, (feed_id,))
+             where feed_data.id = $1 """
+    global con
+    try:
+        return list(await con.fetchrow(sql, feed_id))
+    except Exception as e:
+        print(e)
+        return list()
 
 
-def get_random_n_posts(number_of_posts: int):
+async def get_random_n_posts(number_of_posts: int):
     '''
     Get random user defined number of posts
     :param number_of_posts
@@ -291,11 +250,18 @@ def get_random_n_posts(number_of_posts: int):
              feed_data.title ,feed_data.description,feed_data.liked
              from feed_data inner join user_data 
              on user_data.id = feed_data.owner_id 
-             order by random() limit %s;"""
-    return fetchall_db(sql, (number_of_posts,))
+             order by random() limit $1;"""
+    global con
+    try:
+        res = await con.fetch(sql, number_of_posts)
+        res = list(map(list, res))
+        return res
+    except Exception as e:
+        print(e)
+        return list()
 
 
-def get_all_posts():
+async def get_all_posts():
     '''
     Get all posts
     :return list() or False
@@ -305,10 +271,17 @@ def get_all_posts():
              feed_data.title ,feed_data.description ,feed_data.liked
              from feed_data inner join user_data 
              on user_data.id = feed_data.owner_id"""
-    return fetchall_db(sql, tuple())
+    global con
+    try:
+        res = await con.fetch(sql)
+        res = list(map(list, res))
+        return res
+    except Exception as e:
+        print(e)
+        return list()
 
 
-def get_all_posts_with_paging(page: int):
+async def get_all_posts_with_paging(page: int):
     '''
     Get all posts using pages
     :param page: Counting starts with 1
@@ -318,21 +291,35 @@ def get_all_posts_with_paging(page: int):
              user_data.username,feed_data.id,user_data.id, 
              feed_data.title ,feed_data.description ,feed_data.liked
              from feed_data inner join user_data 
-             on user_data.id = feed_data.owner_id limit %s offset %s"""
-    return fetchall_db(sql, (POSTS_PER_PAGE, (page - 1) * POSTS_PER_PAGE,))
+             on user_data.id = feed_data.owner_id limit $1 offset $2"""
+    global con
+    try:
+        res = await con.fetch(sql, POSTS_PER_PAGE, (page - 1) * POSTS_PER_PAGE)
+        res = list(map(list, res))
+        return res
+    except Exception as e:
+        print(e)
+        return list()
 
 
-def delete_post(feed_id: int):
+async def delete_post(feed_id: int):
     '''
     Delete post in feed, users, liked tables and delete file, associated with post
     :param feed_id
     :return: True or False
     '''
-    sql = """delete from liked_data where feed_id = %s"""
-    if not commit_db(sql, (feed_id,)):
+    sql = """delete from liked_data where feed_id = $1"""
+    global con
+    try:
+        await con.execute(sql, feed_id)
+    except Exception as e:
+        print(e)
         return False
-    sql = """delete from feed_data where id = %s;"""
-    if not commit_db(sql, (feed_id,)):
+    sql = """delete from feed_data where id = $1;"""
+    try:
+        await con.execute(sql, feed_id)
+    except Exception as e:
+        print(e)
         return False
     try:
         os.remove(f'static/{feed_id}.png')
@@ -341,45 +328,65 @@ def delete_post(feed_id: int):
     return True
 
 
-def like_post(user_id: int, feed_id: int):
+async def like_post(user_id: int, feed_id: int):
     '''
     Like post
     :param user_id
     :param feed_id
     :return: True or False
     '''
-    sql = """insert into liked_data (user_id,feed_id) values (%s,%s);"""
-    if not commit_db(sql, (user_id, feed_id,)):
+    sql = """insert into liked_data (user_id,feed_id) values ($1,$2);"""
+    global con
+    try:
+        await con.execute(sql, user_id,feed_id)
+    except Exception as e:
+        print(e)
         return False
-    liked = count_likes(feed_id)
+    liked = await count_likes(feed_id)
     if not liked:
         return False
-    sql = """update feed_data set liked=%s where id=%s"""
-    return commit_db(sql, (liked, feed_id,))
+    sql = """update feed_data set liked=$1 where id=$2"""
+    try:
+        return await con.execute(sql, liked,feed_id)
+    except Exception as e:
+        print(e)
+        return False
 
 
-def unlike_post(user_id: int, feed_id: int):
+async def unlike_post(user_id: int, feed_id: int):
     '''
     Delete like of post
     :param user_id
     :param feed_id
     :return: True or False
     '''
-    sql = """delete from liked_data where user_id=%s and feed_id=%s ;"""
-    if not commit_db(sql, (user_id, feed_id,)):
+    sql = """delete from liked_data where user_id=$1 and feed_id=$2 ;"""
+    global con
+    try:
+        await con.execute(sql, user_id,feed_id)
+    except Exception as e:
+        print(e)
         return False
-    liked = count_likes(feed_id)
-    if not liked:
+    liked = await count_likes(feed_id)
+    sql = """update feed_data set liked=$1 where id=$2"""
+    try:
+        await con.execute(sql, liked, feed_id)
+    except Exception as e:
+        print(e)
         return False
-    sql = """update feed_data set liked=%s where id=%s"""
-    return commit_db(sql, (liked, feed_id,))
+    return True
 
 
-def count_likes(feed_id: int):
+async def count_likes(feed_id: int):
     '''
     Count likes of post by id
     :param feed_id
     :return: int() or False
     '''
-    sql = """select count(id) from liked_data where feed_id = %s;"""
-    return fetchone_db(sql, (feed_id,))
+    sql = """select count(id) from liked_data where feed_id = $1;"""
+    global con
+    try:
+        return list(await con.fetchrow(sql, feed_id))[0]
+    except Exception as e:
+        print(e)
+        return list()

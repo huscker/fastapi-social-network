@@ -20,7 +20,7 @@ async def startup() -> None:
     Connect to db
     :return:
     '''
-    if not connect_db():
+    if not await connect_db():
         exit(0)
 
 
@@ -30,7 +30,7 @@ async def shutdown() -> None:
     Disconnect from db
     :return:
     '''
-    disconnect_db()
+    await disconnect_db()
 
 
 app.include_router(user_router)

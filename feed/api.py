@@ -14,11 +14,11 @@ feed_router = APIRouter()
 
 
 @feed_router.get('/feed')
-def get_feed():
+async def get_feed():
     '''
     Get all posts
     '''
-    posts = db.get_all_posts()
+    posts = await db.get_all_posts()
     posts = update_post_data(posts)
     return JSONResponse(status_code=status.HTTP_200_OK, content={
         'posts': posts
@@ -26,11 +26,11 @@ def get_feed():
 
 
 @feed_router.get('/feed/{n_posts}')
-def get_n_posts(n_posts: int = Path(..., gt=0,description='Number of random posts to be returned')):
+async def get_n_posts(n_posts: int = Path(..., gt=0,description='Number of random posts to be returned')):
     '''
     Get user defined number of posts
     '''
-    posts = db.get_random_n_posts(n_posts)
+    posts = await db.get_random_n_posts(n_posts)
     posts = update_post_data(posts)
     return JSONResponse(status_code=status.HTTP_200_OK, content={
         'posts': posts
@@ -38,11 +38,11 @@ def get_n_posts(n_posts: int = Path(..., gt=0,description='Number of random post
 
 
 @feed_router.get('/feed/page/{page}')
-def gen_posts_by_page(page: int = Path(..., gt=0,description='Page number')):
+async def gen_posts_by_page(page: int = Path(..., gt=0,description='Page number')):
     '''
     Get posts on page
     '''
-    posts = db.get_all_posts_with_paging(page)
+    posts = await db.get_all_posts_with_paging(page)
     if posts:
         posts = update_post_data(posts)
         return JSONResponse(status_code=status.HTTP_200_OK, content={
@@ -55,11 +55,11 @@ def gen_posts_by_page(page: int = Path(..., gt=0,description='Page number')):
 
 
 @feed_router.get('/feed/post/{feed_id}')
-def get_post(feed_id: int = Path(..., gt=0,description='Post id')):
+async def get_post(feed_id: int = Path(..., gt=0,description='Post id')):
     '''
     Get post by id
     '''
-    post = db.get_post(feed_id)
+    post = await db.get_post(feed_id)
     if post:
         post = update_post_data([post])[0]
         return JSONResponse(status_code=status.HTTP_200_OK, content={
@@ -73,11 +73,11 @@ def get_post(feed_id: int = Path(..., gt=0,description='Post id')):
 
 
 @feed_router.get('/feed/user/{user_id}')
-def get_posts_of_user(user_id: int = Path(..., gt=0,description='User id')):
+async def get_posts_of_user(user_id: int = Path(..., gt=0,description='User id')):
     '''
     Get posts of user by id
     '''
-    posts = db.get_posts_of_user(user_id)
+    posts = await db.get_posts_of_user(user_id)
     posts = update_post_data(posts)
     return JSONResponse(status_code=status.HTTP_200_OK, content={
         'posts': posts
@@ -85,7 +85,7 @@ def get_posts_of_user(user_id: int = Path(..., gt=0,description='User id')):
 
 
 @feed_router.post('/feed/like/{feed_id}')
-def like_post(feed_id: int = Path(..., gt=0,description='Post id'), access_token: Optional[str] = Header(None,description='JWT auth token')):
+async def like_post(feed_id: int = Path(..., gt=0,description='Post id'), access_token: Optional[str] = Header(None,description='JWT auth token')):
     '''
     Like post if authorized
     '''
@@ -95,8 +95,8 @@ def like_post(feed_id: int = Path(..., gt=0,description='Post id'), access_token
             detail="You're not logged in",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    user = get_current_user(access_token)
-    if not db.like_post(user[0], feed_id):
+    user = await get_current_user(access_token)
+    if not await db.like_post(user[0], feed_id):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Already liked or invalid id"
@@ -107,7 +107,7 @@ def like_post(feed_id: int = Path(..., gt=0,description='Post id'), access_token
 
 
 @feed_router.post('/feed/unlike/{feed_id}')
-def unlike_post(feed_id: int = Path(..., gt=0,description='Post id'), access_token: Optional[str] = Header(None,description='JWT auth token')):
+async def unlike_post(feed_id: int = Path(..., gt=0,description='Post id'), access_token: Optional[str] = Header(None,description='JWT auth token')):
     '''
     Remove like if authorized
     '''
@@ -117,11 +117,11 @@ def unlike_post(feed_id: int = Path(..., gt=0,description='Post id'), access_tok
             detail="You're not logged in",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    user = get_current_user(access_token)
-    if not db.unlike_post(user[0], feed_id):
+    user = await get_current_user(access_token)
+    if not await db.unlike_post(user[0], feed_id):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Unknown error"
+            detail="Already unliked or invalid id"
         )
     return JSONResponse(status_code=status.HTTP_200_OK, content={
         'detail': "Executed",
@@ -129,7 +129,7 @@ def unlike_post(feed_id: int = Path(..., gt=0,description='Post id'), access_tok
 
 
 @feed_router.delete('/feed/post/{feed_id}')
-def delete_post(
+async def delete_post(
         feed_id: int = Path(..., gt=0,description='Post id'),
         access_token: Optional[str] = Header(None,description='JWT auth token')):
     '''
@@ -141,8 +141,8 @@ def delete_post(
             detail="You're not logged in",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    user = get_current_user(access_token)
-    post = db.get_post(feed_id)
+    user = await get_current_user(access_token)
+    post = await db.get_post(feed_id)
     if not post:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -153,7 +153,7 @@ def delete_post(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Post doesnt belong to user"
         )
-    if not db.delete_post(feed_id):
+    if not await db.delete_post(feed_id):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Unknown error"
@@ -164,7 +164,7 @@ def delete_post(
 
 
 @feed_router.post('/feed')
-def add_new_post(
+async def add_new_post(
         title: str,
         description: str,
         photo_file: UploadFile = File(...,description='Upload file'),
@@ -178,8 +178,8 @@ def add_new_post(
             detail="You're not logged in",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    user = get_current_user(access_token)
-    id = db.add_new_post(title, description, photo_file, user[0])
+    user = await get_current_user(access_token)
+    id = await db.add_new_post(title, description, photo_file, user[0])
     if not id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
