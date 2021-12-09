@@ -21,8 +21,8 @@ async def register_new(user: schemas.UserNew):
 
 
 @user_router.post('/login', response_model=schemas.Token)
-async def authenticate(login: str = Form(...,description='User login'), password: str = Form(...,description='User password')):
+async def authenticate(user: schemas.User):
     '''
     Get auth token
     '''
-    return await login_for_access_token(login, password)
+    return await login_for_access_token(user.login, user.password)
