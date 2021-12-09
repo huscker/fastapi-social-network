@@ -2,7 +2,7 @@ import os
 
 import asyncpg
 from fastapi import UploadFile
-from configs.db import *
+from configs.config import Config
 
 con : asyncpg.connection.Connection
 
@@ -18,7 +18,7 @@ async def connect_db():
         if url:
             con = await asyncpg.connect(url)
         else:
-            con = await asyncpg.connect(database=DATABASE, user=USER, password=PASSWORD, host=HOST, port=PORT)
+            con = await asyncpg.connect(database=Config.DATABASE, user=Config.USER, password=Config.PASSWORD, host=Config.HOST, port=Config.PORT)
     except Exception as er:
         print(er)
         con = None
@@ -298,7 +298,7 @@ async def get_all_posts_with_paging(page: int):
              on user_data.id = feed_data.owner_id limit $1 offset $2"""
     global con
     try:
-        res = await con.fetch(sql, POSTS_PER_PAGE, (page - 1) * POSTS_PER_PAGE)
+        res = await con.fetch(sql, Config.POSTS_PER_PAGE, (page - 1) * Config.POSTS_PER_PAGE)
         res = list(map(list, res))
         return res
     except Exception as e:
