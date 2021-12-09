@@ -42,13 +42,9 @@ async def gen_posts_by_page(page: int = Path(..., gt=0, description='Page number
     posts = await db.get_all_posts_with_paging(page)
     if posts:
         posts = update_post_data(posts)
-        return JSONResponse(status_code=status.HTTP_200_OK, content={
-            'posts': posts
-        })
-    else:
-        return JSONResponse(status_code=status.HTTP_200_OK, content={
-            'posts': []
-        })
+    return JSONResponse(status_code=status.HTTP_200_OK, content={
+        'posts': posts
+    })
 
 
 @feed_router.get('/feed/post/{feed_id}')
