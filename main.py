@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from auth.api import user_router
-from database.db import connect_db, disconnect_db
+from database.db import DB
 from feed.api import feed_router
 from profile.api import profile_router
 
@@ -20,7 +20,7 @@ async def startup() -> None:
     Connect to db
     :return:
     '''
-    if not await connect_db():
+    if not await DB.connect_db():
         exit(0)
 
 
@@ -30,7 +30,7 @@ async def shutdown() -> None:
     Disconnect from db
     :return:
     '''
-    await disconnect_db()
+    await DB.disconnect_db()
 
 
 app.include_router(user_router)

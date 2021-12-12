@@ -4,7 +4,7 @@ from fastapi import APIRouter, status, Path, HTTPException, File, UploadFile, He
 from fastapi.responses import JSONResponse
 
 from auth.login import get_current_user
-from database import db
+from database.db import DB
 from feed.feed import update_post_data
 
 feed_router = APIRouter()
@@ -15,7 +15,7 @@ async def get_feed():
     '''
     Get all posts
     '''
-    posts = await db.get_all_posts()
+    posts = await DB.get_all_posts()
     posts = update_post_data(posts)
     return JSONResponse(status_code=status.HTTP_200_OK, content={
         'posts': posts
@@ -27,7 +27,7 @@ async def get_n_posts(n_posts: int = Path(..., gt=0, description='Number of rand
     '''
     Get user defined number of posts
     '''
-    posts = await db.get_random_n_posts(n_posts)
+    posts = await DB.get_random_n_posts(n_posts)
     posts = update_post_data(posts)
     return JSONResponse(status_code=status.HTTP_200_OK, content={
         'posts': posts
@@ -39,7 +39,7 @@ async def gen_posts_by_page(page: int = Path(..., gt=0, description='Page number
     '''
     Get posts on page
     '''
-    posts = await db.get_all_posts_with_paging(page)
+    posts = await DB.get_all_posts_with_paging(page)
     if posts:
         posts = update_post_data(posts)
     return JSONResponse(status_code=status.HTTP_200_OK, content={
@@ -52,7 +52,7 @@ async def get_post(feed_id: int = Path(..., gt=0, description='Post id')):
     '''
     Get post by id
     '''
-    post = await db.get_post(feed_id)
+    post = await DB.get_post(feed_id)
     if post:
         post = update_post_data([post])[0]
         return JSONResponse(status_code=status.HTTP_200_OK, content={
@@ -70,7 +70,7 @@ async def get_posts_of_user(user_id: int = Path(..., gt=0, description='User id'
     '''
     Get posts of user by id
     '''
-    posts = await db.get_posts_of_user(user_id)
+    posts = await DB.get_posts_of_user(user_id)
     posts = update_post_data(posts)
     return JSONResponse(status_code=status.HTTP_200_OK, content={
         'posts': posts
@@ -90,7 +90,7 @@ async def like_post(feed_id: int = Path(..., gt=0, description='Post id'),
             headers={"WWW-Authenticate": "Bearer"},
         )
     user = await get_current_user(access_token)
-    if not await db.like_post(user[0], feed_id):
+    if not await DB.like_post(user[0], feed_id):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Already liked or invalid id"
@@ -113,7 +113,7 @@ async def unlike_post(feed_id: int = Path(..., gt=0, description='Post id'),
             headers={"WWW-Authenticate": "Bearer"},
         )
     user = await get_current_user(access_token)
-    if not await db.unlike_post(user[0], feed_id):
+    if not await DB.unlike_post(user[0], feed_id):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Already unliked or invalid id"
@@ -137,7 +137,7 @@ async def delete_post(
             headers={"WWW-Authenticate": "Bearer"},
         )
     user = await get_current_user(access_token)
-    post = await db.get_post(feed_id)
+    post = await DB.get_post(feed_id)
     if not post:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -148,7 +148,7 @@ async def delete_post(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Post doesnt belong to user"
         )
-    if not await db.delete_post(feed_id):
+    if not await DB.delete_post(feed_id):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Unknown error"
@@ -174,7 +174,7 @@ async def add_new_post(
             headers={"WWW-Authenticate": "Bearer"},
         )
     user = await get_current_user(access_token)
-    id = await db.add_new_post(title, description, photo_file, user[0])
+    id = await DB.add_new_post(title, description, photo_file, user[0])
     if not id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

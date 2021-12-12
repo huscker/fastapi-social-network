@@ -4,7 +4,7 @@ from fastapi import APIRouter, status, HTTPException, Header
 from fastapi.responses import JSONResponse
 
 from auth.login import get_current_user, get_password_hash
-from database import db
+from database.db import DB
 
 profile_router = APIRouter()
 
@@ -21,7 +21,7 @@ async def get_my_profile(access_token: Optional[str] = Header(None,description='
             headers={"WWW-Authenticate": "Bearer"},
         )
     user = await get_current_user(access_token)
-    posts = await db.get_post(user[0])
+    posts = await DB.get_post(user[0])
     if posts is None:
         posts = list()
     return JSONResponse(status_code=status.HTTP_200_OK, content={
@@ -53,7 +53,7 @@ async def change_profile(
         user[2] = None
     if username is not None:
         user[3] = username
-    if not await db.update_user_db(user[2], user[3], user[0]):
+    if not await DB.update_user_db(user[2], user[3], user[0]):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Username is not unique"

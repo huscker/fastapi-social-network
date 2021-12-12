@@ -7,7 +7,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 
 from configs.config import Config
-from database.db import add_new_user_db, get_user_by_login_db
+from database.db import DB
 from . import schemas
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -39,7 +39,7 @@ async def register_user(user: schemas.UserNew):
     :param user:
     :return: True or False
     '''
-    return await add_new_user_db(user.login, get_password_hash(user.password), user.username)
+    return await DB.add_new_user_db(user.login, get_password_hash(user.password), user.username)
 
 
 async def authenticate_user(login: str, password: str):
@@ -49,7 +49,7 @@ async def authenticate_user(login: str, password: str):
     :param password:
     :return: list() or False
     '''
-    user = await get_user_by_login_db(login)
+    user = await DB.get_user_by_login_db(login)
     if not user:
         return False
     if not verify_password(password, user[2]):
@@ -86,13 +86,13 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, Config.SECRET_KEY, algorithms=[Config.ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    user = await get_user_by_login_db(username)
+    user = await DB.get_user_by_login_db(username)
     if user is None:
         raise credentials_exception
     return user
@@ -112,7 +112,7 @@ async def login_for_access_token(login: str, password: str):
             detail="Incorrect login or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token_expires = timedelta(minutes=Config.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": user[1]}, expires_delta=access_token_expires
     )

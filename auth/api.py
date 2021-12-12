@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Form, status, HTTPException
+from fastapi import APIRouter, status, HTTPException
 from . import schemas
 from .login import login_for_access_token, register_user
 
