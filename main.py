@@ -1,3 +1,5 @@
+import sys
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
@@ -21,7 +23,7 @@ async def startup() -> None:
     :return:
     '''
     if not await DB.connect_db():
-        exit(0)
+        sys.exit(0)
 
 
 @app.on_event("shutdown")

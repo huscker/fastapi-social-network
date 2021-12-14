@@ -10,7 +10,7 @@ profile_router = APIRouter()
 
 
 @profile_router.get('/profile')
-async def get_my_profile(access_token: Optional[str] = Header(None,description='JWT auth token')):
+async def get_my_profile(access_token: Optional[str] = Header(None, description='JWT auth token')):
     '''
     Get posts and user data
     '''
@@ -34,9 +34,9 @@ async def get_my_profile(access_token: Optional[str] = Header(None,description='
 
 @profile_router.put('/profile')
 async def change_profile(
-        access_token: Optional[str] = Header(None,description='JWT auth token'),
-        username: Optional[str] = Header(None,description='New username'),
-        password: Optional[str] = Header(None,description='New password')):
+        access_token: Optional[str] = Header(None, description='JWT auth token'),
+        username: Optional[str] = Header(None, description='New username'),
+        password: Optional[str] = Header(None, description='New password')):
     '''
     Change user data if registered
     '''

@@ -10,14 +10,13 @@ async def register_new(user: schemas.UserNew):
     '''
     Register new user
     '''
-    if await register_user(user):
-        return user
-    else:
+    if not await register_user(user):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Username or login is not unique",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    return user
 
 
 @user_router.post('/login', response_model=schemas.Token)

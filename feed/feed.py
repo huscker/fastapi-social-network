@@ -4,7 +4,7 @@ def update_post_data(posts: list):
     :param posts
     :return: list()
     '''
-    posts = list(map(lambda x: list(x), posts))
+    posts = list(map(list, posts))
     for i in range(len(posts)):
         posts[i] = {
             'id': posts[i][1],

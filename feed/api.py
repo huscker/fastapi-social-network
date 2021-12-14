@@ -53,16 +53,15 @@ async def get_post(feed_id: int = Path(..., gt=0, description='Post id')):
     Get post by id
     '''
     post = await DB.get_post(feed_id)
-    if post:
-        post = update_post_data([post])[0]
-        return JSONResponse(status_code=status.HTTP_200_OK, content={
-            'post': post,
-        })
-    else:
+    if not post:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid feed id"
         )
+    post = update_post_data([post])[0]
+    return JSONResponse(status_code=status.HTTP_200_OK, content={
+        'post': post,
+    })
 
 
 @feed_router.get('/feed/user/{user_id}')
